@@ -1,5 +1,5 @@
-firecrawl-py==1.0.0
+
 plotly
 pandas
 requests
-google-generativeai
+
