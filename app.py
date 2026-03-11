@@ -21,16 +21,16 @@ st.markdown("<div class='divo-slogan'>The truth behind the filters. (滤镜背�
 hotel_query = st.text_input("", placeholder="输入酒店名称（如：胡志明市艾美酒店）", label_visibility="collapsed")
 
 if st.button("🚀 启动 AI 多维扫描"):
-if hotel_query:
-# 进度条模拟 Agent 协作
-progress_text = "Divo Agent 协作中：正在抓取全网社交媒体与实时噪音数据..."
-my_bar = st.progress(0, text=progress_text)
+    if hotel_query:
+  # 进度条模拟 Agent 协作
+        progress_text = "Divo Agent 协作中：正在抓取全网社交媒体与实时噪音数据..."
+        my_bar = st.progress(0, text=progress_text)
 
-for percent_complete in range(100):
-time.sleep(0.02)
+        for percent_complete in range(100):
+            time.sleep(0.02)
 my_bar.progress(percent_complete + 1, text=progress_text)
 
-st.divider()
+        st.divider()
 
 # 结果展示
 col1, col2, col3 = st.columns(3)
