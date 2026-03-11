@@ -1,1 +1,3 @@
-
+firecrawl-py
+plotly
+pandas
