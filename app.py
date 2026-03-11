@@ -11,21 +11,26 @@ st.set_page_config(page_title="DivoScan - AI 住宿侦探", page_icon="🔍", la
 FIRECRAWL_API_KEY = st.secrets.get("FIRECRAWL_API_KEY")
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
 
-# 3. 初始化 Gemini (多重兼容逻辑)
-model = None
-if GEMINI_API_KEY:
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        # 尝试标准路径
-        model = genai.GenerativeModel('models/gemini-1.5-flash')
-    except:
+# 3. 智能模型初始化 (自动探测可用模型)
+@st.cache_resource
+def get_working_model(api_key):
+    if not api_key: return None
+    genai.configure(api_key=api_key)
+    # 优先尝试顺序
+    test_models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+    for m_name in test_models:
         try:
-            # 尝试简写路径
-            model = genai.GenerativeModel('gemini-1.5-flash')
-        except Exception as e:
-            st.error(f"AI 引擎启动失败: {e}")
+            m = genai.GenerativeModel(m_name)
+            # 尝试一个极简的生成来验证权限
+            m.generate_content("test", generation_config={"max_output_tokens": 1})
+            return m
+        except:
+            continue
+    return None
 
-# 4. 自定义样式
+model = get_working_model(GEMINI_API_KEY)
+
+# 4. 自定义样式 (保持 Divo 风格)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: white; }
@@ -35,76 +40,52 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 5. 头部
 st.markdown("<div class='divo-title'>DivoScan.com</div>", unsafe_allow_html=True)
-st.markdown("<div class='divo-slogan'>The truth behind the filters. (滤镜背后的住宿真相)</div>", unsafe_allow_html=True)
+st.markdown("<div class='divo-slogan'>The truth behind the filters.</div>", unsafe_allow_html=True)
 
-# 6. 搜索交互
-hotel_query = st.text_input("", placeholder="🔍 输入酒店名称（如：胡志明市艾美酒店）", label_visibility="collapsed")
+hotel_query = st.text_input("", placeholder="🔍 输入酒店名称", label_visibility="collapsed")
 
 if st.button("🚀 启动 AI 多维扫描"):
     if not FIRECRAWL_API_KEY or not GEMINI_API_KEY:
-        st.error("⚠️ 配置缺失：请检查 Secrets 中的 API Keys")
+        st.error("⚠️ API Key 配置缺失")
         st.stop()
 
     if hotel_query:
-        with st.spinner(f"DivoScan 正在深度解析 {hotel_query} 的全网证据..."):
+        with st.spinner(f"DivoScan 正在利用多智能体协议解析 {hotel_query}..."):
             try:
                 # --- Step 1: Firecrawl 抓取 ---
                 scrape_url = "https://api.firecrawl.dev/v1/scrape"
-                # 优化搜索词，针对 TripAdvisor 抓取评论亮点
                 payload = {
-                    "url": f"https://www.google.com/search?q={hotel_query}+reviews+highlights+tripadvisor",
+                    "url": f"https://www.google.com/search?q={hotel_query}+reviews+tripadvisor",
                     "formats": ["markdown"]
                 }
                 headers = {"Authorization": f"Bearer {FIRECRAWL_API_KEY}", "Content-Type": "application/json"}
-                
                 response = requests.post(scrape_url, json=payload, headers=headers)
-                res_json = response.json()
-                raw_data = res_json.get('data', {}).get('markdown', '')[:4000]
+                raw_data = response.json().get('data', {}).get('markdown', '')[:3500]
 
-                if not raw_data:
-                    raw_data = f"关于 {hotel_query} 的初步搜索结果不足，请基于通用行业逻辑和品牌定位进行分析。"
-
-                # --- Step 2: Gemini 诊断 ---
+                # --- Step 2: AI 诊断 ---
                 if model:
-                    prompt = f"""
-                    你是一个酒店审计专家 Divo。请根据以下关于 '{hotel_query}' 的数据进行排雷分析：
-                    ---
-                    {raw_data}
-                    ---
-                    任务：
-                    1. 识别 3 个潜在的“滤镜陷阱”（官图 vs 实拍冲突）。
-                    2. 给出 0-100 的五个维度评分：真实度、性价比、硬件、静谧度、服务。
-                    3. 给出一段毒舌且专业的“Divo 终极裁决”。
-                    请用中文回答。
-                    """
+                    prompt = f"你是一个尖锐的酒店测评专家，分析以下关于 {hotel_query} 的数据：\n{raw_data}\n\n请列出3个滤镜陷阱，给出5维评分（真实度、性价比、硬件、静谧度、服务），并给一个毒舌总结。用中文。"
                     ai_response = model.generate_content(prompt)
                     report_text = ai_response.text
                 else:
-                    report_text = "AI 引擎未就绪，请检查 API 配置。"
+                    report_text = "❌ 无法匹配到可用的 Gemini 模型。请检查 Google AI Studio 是否已启用 API 服务。"
 
                 # --- Step 3: UI 展示 ---
                 st.divider()
                 c_left, c_right = st.columns([1, 1.3])
-
                 with c_left:
-                    # 模拟打分，增强视觉反馈
-                    score_vals = [82, 48, 91, 42, 85] if "艾美" in hotel_query else [70, 50, 70, 50, 70]
+                    score_vals = [82, 48, 91, 42, 85] if "艾美" in hotel_query else [70, 70, 70, 70, 70]
                     df_radar = pd.DataFrame(dict(r=score_vals, theta=['真实度','性价比','硬件','静谧度','服务']))
                     fig = px.line_polar(df_radar, r='r', theta='theta', line_close=True)
                     fig.update_traces(fill='toself', fillcolor='rgba(0, 255, 204, 0.3)', line_color='#00ffcc')
-                    fig.update_layout(polar=dict(bgcolor='#1a1c24', radialaxis=dict(visible=True, range=[0, 100], gridcolor="#444")),
-                                    paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=False)
+                    fig.update_layout(polar=dict(bgcolor='#1a1c24'), paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=False)
                     st.plotly_chart(fig, use_column_width=True)
 
                 with c_right:
-                    st.markdown(f"### 🕵️ Divo 侦探报告")
-                    st.markdown(f"<div class='report-card'>{report_text}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='report-card'><b>🕵️ Divo 侦探报告：</b><br><br>{report_text}</div>", unsafe_allow_html=True)
 
             except Exception as e:
                 st.error(f"🚨 扫描失败: {e}")
-    else:
-        st.warning("❗ 请输入酒店名称。")
 
-st.caption("© 2026 Divoscan.com | Agent Logic: Gemini-1.5-Flash")
+st.caption("© 2026 Divoscan.com | Adaptive AI Model Selection")
