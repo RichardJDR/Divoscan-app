@@ -47,14 +47,6 @@ st.markdown("<div class='divo-title'>DivoScan.com</div>", unsafe_allow_html=True
 st.markdown("<div class='divo-slogan'>The truth behind the filters. (滤镜背后的住宿真相)</div>", unsafe_allow_html=True)
 
 # 6. 侧边栏状态灯
-with st.sidebar:
-    st.header("🕵️ 系统核心状态")
-    if verified_model_path:
-        st.success(f"AI 引擎已挂载: \n{verified_model_path.split('/')[-1]}")
-    else:
-        st.error("AI 引擎连接失败")
-    st.divider()
-    st.caption("DivoScan v1.0.0-Gold")
 
 # 7. 主交互逻辑
 hotel_query = st.text_input("", placeholder="🔍 输入酒店名称（例如：胡志明市艾美酒店）", label_visibility="collapsed")
